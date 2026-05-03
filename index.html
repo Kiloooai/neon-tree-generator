@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Tree Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #0ff;
+            text-shadow: 0 0 5px #0ff;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(0,255,255,0.3);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            user-select: none;
+            width: 220px;
+        }
+
+        .controls h2 {
+            margin-bottom: 12px;
+            font-size: 16px;
+            color: #f0f;
+            text-shadow: 0 0 10px #f0f;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 10px;
+            color: #ff0;
+            margin-bottom: 4px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #0ff;
+        }
+
+        .value-display {
+            float: right;
+            color: #fff;
+            font-weight: bold;
+            font-size: 11px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 8px;
+            background: transparent;
+            border: 1px solid #0ff;
+            color: #0ff;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: rgba(0,255,255,0.1);
+            box-shadow: 0 0 10px rgba(0,255,255,0.3);
+        }
+
+        .stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #0f0;
+            text-shadow: 0 0 8px #0f0;
+            font-size: 12px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,255,0,0.3);
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+            max-width: 500px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+        <h2>🌳 NEON TREE GENERATOR</h2>
+
+        <div class="control-group">
+            <label>Branch Angle <span class="value-display" id="angleVal">25°</span></label>
+            <input type="range" id="angle" min="5" max="90" value="25">
+        </div>
+
+        <div class="control-group">
+            <label>Length Decay <span class="value-display" id="decayVal">0.65</span></label>
+            <input type="range" id="decay" min="0.3" max="0.85" step="0.05" value="0.65">
+        </div>
+
+        <div class="control-group">
+            <label>Depth (Recursion) <span class="value-display" id="depthVal">10</span></label>
+            <input type="range" id="depth" min="4" max="13" value="10">
+        </div>
+
+        <div class="control-group">
+            <label>Branchiness (2–4) <span class="value-display" id="splitVal">2</span></label>
+            <input type="range" id="split" min="2" max="4" step="1" value="2">
+        </div>
+
+        <div class="control-group">
+            <label>Base Thickness <span class="value-display" id="thickVal">12</span></label>
+            <input type="range" id="thickness" min="4" max="25" value="12">
+        </div>
+
+        <div class="control-group">
+            <label>Start Hue <span class="value-display" id="hueVal">120</span></label>
+            <input type="range" id="hue" min="0" max="360" value="120">
+        </div>
+
+        <div class="control-group">
+            <label>Hue Shift <span class="value-display" id="hueShiftVal">30</span></label>
+            <input type="range" id="hueShift" min="0" max="90" value="30">
+        </div>
+
+        <div class="control-group">
+            <label>Animation Speed <span class="value-display" id="speedVal">1.0</span></label>
+            <input type="range" id="speed" min="0.5" max="3" step="0.1" value="1">
+        </div>
+
+        <div class="buttons">
+            <button id="growBtn">Grow</button>
+            <button id="randomBtn">Random</button>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div>Branches: <span id="branchCount">0</span></div>
+        <div>FPS: <span id="fps">60</span></div>
+    </div>
+
+    <div class="instructions">
+        Adjust parameters and click Grow to watch a neon tree sprout in real time • Randomize for surprise • Trees are forever (just kidding, click Grow again to regrow)
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Controls
+        const angleSlider = document.getElementById('angle');
+        const decaySlider = document.getElementById('decay');
+        const depthSlider = document.getElementById('depth');
+        const splitSlider = document.getElementById('split');
+        const thickSlider = document.getElementById('thickness');
+        const hueSlider = document.getElementById('hue');
+        const hueShiftSlider = document.getElementById('hueShift');
+        const speedSlider = document.getElementById('speed');
+
+        const growBtn = document.getElementById('growBtn');
+        const randomBtn = document.getElementById('randomBtn');
+
+        let width, height;
+        let branches = []; // queue of branches to draw
+        let branchCount = 0;
+        let drawing = false;
+        let lastTime = 0;
+        let frameCount = 0;
+        let lastFpsTime = 0;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        function getParams() {
+            return {
+                angle: parseFloat(angleSlider.value) * Math.PI / 180,
+                decay: parseFloat(decaySlider.value),
+                depth: parseInt(depthSlider.value),
+                split: parseInt(splitSlider.value),
+                thickness: parseInt(thickSlider.value),
+                hue: parseInt(hueSlider.value),
+                hueShift: parseInt(hueShiftSlider.value),
+                speed: parseFloat(speedSlider.value)
+            };
+        }
+
+        // Branch representation
+        class Branch {
+            constructor(x1, y1, length, angle, depth, parentThickness, hue) {
+                this.x1 = x1;
+                this.y1 = y1;
+                this.length = length;
+                this.angle = angle;
+                this.depth = depth;
+                this.thickness = parentThickness * 0.7;
+                this.hue = hue;
+                this.progress = 0; // 0..1 for animation
+                this.growing = true;
+                this.children = [];
+                this.completed = false;
+            }
+
+            update(speed) {
+                if (!this.growing) return false;
+                this.progress += speed * 0.02 * (1 - this.depth * 0.05); // slower for deeper levels
+                if (this.progress >= 1) {
+                    this.progress = 1;
+                    this.growing = false;
+                    this.completed = true;
+                    return true; // finished
+                }
+                return false;
+            }
+
+            draw(ctx) {
+                const x2 = this.x1 + Math.cos(this.angle) * this.length * this.progress;
+                const y2 = this.y1 + Math.sin(this.angle) * this.length * this.progress;
+
+                ctx.beginPath();
+                ctx.moveTo(this.x1, this.y1);
+                ctx.lineTo(x2, y2);
+                ctx.strokeStyle = `hsl(${this.hue}, 100%, 60%)`;
+                ctx.lineWidth = Math.max(1, this.thickness);
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ctx.strokeStyle;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                return { x: x2, y: y2 };
+            }
+        }
+
+        function startGrowth() {
+            const p = getParams();
+            branches = [];
+            branchCount = 0;
+            drawing = true;
+
+            // Initial trunk from bottom center
+            const startX = width / 2;
+            const startY = height;
+            const trunkLength = height * 0.22; // ~22% of screen height
+            const trunkAngle = -Math.PI / 2; // straight up
+
+            const root = new Branch(startX, startY, trunkLength, trunkAngle, 0, p.thickness, p.hue);
+            branches.push(root);
+            branchCount++;
+        }
+
+        function updateBranches() {
+            const p = getParams();
+            let i = 0;
+            while (i < branches.length) {
+                const b = branches[i];
+                const finished = b.update(p.speed);
+                if (finished) {
+                    // Spawn children if depth not exceeded
+                    if (b.depth < p.depth && b.thickness >= 1) {
+                        const childLength = b.length * p.decay;
+                        const angleOffset = p.angle * Math.PI / 180;
+                        const numChildren = p.split;
+
+                        for (let j = 0; j < numChildren; j++) {
+                            let childAngle;
+                            if (numChildren === 2) {
+                                childAngle = b.angle + (j === 0 ? -1 : 1) * angleOffset;
+                            } else if (numChildren === 3) {
+                                childAngle = b.angle + (j === 0 ? -1 : 0) * angleOffset + (j === 2 ? 1 : 0) * angleOffset * 1.5;
+                            } else { // 4
+                                const offsets = [-1.5, -0.5, 0.5, 1.5];
+                                childAngle = b.angle + offsets[j] * angleOffset;
+                            }
+                            const childHue = (b.hue + p.hueShift) % 360;
+                            const tip = { x: b.x1 + Math.cos(b.angle) * b.length, y: b.y1 + Math.sin(b.angle) * b.length };
+                            const child = new Branch(tip.x, tip.y, childLength, childAngle, b.depth + 1, b.thickness, childHue);
+                            branches.push(child);
+                            branchCount++;
+                        }
+                    }
+                }
+                i++;
+            }
+        }
+
+        function drawBranches() {
+            // We draw all branches each frame? Could be heavy but depth limited.
+            // Draw from roots to tips so children appear on top
+            for (let b of branches) {
+                b.draw(ctx);
+            }
+        }
+
+        function animate(timestamp) {
+            const delta = timestamp - lastTime || 16;
+            lastTime = timestamp;
+
+            frameCount++;
+            if (timestamp - lastFpsTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFpsTime = timestamp;
+            }
+
+            // Fade background slightly to create motion blur?
+            // For tree, we want persistent drawing, not fade. So we don't clear fully.
+            // But we need to redraw entire tree each frame for smooth growth animation?
+            // Better: keep static canvas for completed branches, draw only growing tips onto a separate layer?
+            // Simpler: don't clear; just draw new segments each frame as they grow. That yields accumulating drawing.
+            // However, when we change parameters and regrow, we need to clear. We'll clear on startGrowth.
+
+            // But we need to redraw growing tips because they animate (progress). We could either:
+            // 1) Clear and redraw everything every frame (simpler, supports animation of growth)
+            // 2) Draw to offscreen canvas and blit (more complex)
+
+            // Let's go with redraw each frame: clear, then draw all branches at their current progress.
+            // This allows smooth growth and parameter changes on the fly.
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            if (drawing) {
+                updateBranches();
+            }
+
+            drawBranches();
+            document.getElementById('branchCount').textContent = branchCount;
+
+            requestAnimationFrame(animate);
+        }
+
+        // UI
+        function updateDisplays() {
+            document.getElementById('angleVal').textContent = angleSlider.value + '°';
+            document.getElementById('decayVal').textContent = decaySlider.value;
+            document.getElementById('depthVal').textContent = depthSlider.value;
+            document.getElementById('splitVal').textContent = splitSlider.value;
+            document.getElementById('thickVal').textContent = thickSlider.value;
+            document.getElementById('hueVal').textContent = hueSlider.value;
+            document.getElementById('hueShiftVal').textContent = hueShiftSlider.value;
+            document.getElementById('speedVal').textContent = speedSlider.value;
+        }
+
+        const allSliders = [angleSlider, decaySlider, depthSlider, splitSlider, thickSlider, hueSlider, hueShiftSlider, speedSlider];
+        allSliders.forEach(s => s.addEventListener('input', updateDisplays));
+
+        growBtn.addEventListener('click', () => {
+            startGrowth();
+        });
+
+        randomBtn.addEventListener('click', () => {
+            angleSlider.value = Math.floor(10 + Math.random() * 80);
+            decaySlider.value = (0.35 + Math.random() * 0.4).toFixed(2);
+            depthSlider.value = Math.floor(5 + Math.random() * 7);
+            splitSlider.value = Math.random() < 0.5 ? 2 : (Math.random() < 0.66 ? 3 : 4);
+            thickSlider.value = Math.floor(6 + Math.random() * 15);
+            hueSlider.value = Math.floor(Math.random() * 360);
+            hueShiftSlider.value = Math.floor(Math.random() * 60);
+            // speed stays maybe?
+            updateDisplays();
+            startGrowth();
+        });
+
+        updateDisplays();
+        animate(0);
+    </script>
+</body>
+</html>
